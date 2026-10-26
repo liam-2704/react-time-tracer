@@ -19,11 +19,10 @@ export default function Management({ tasks, setTasks, tags, onAddTag, onAddTask 
     e.preventDefault();
     if (newTaskName.trim()) {
       onAddTask(newTaskName);
-      setNewTaskName(''); // Clear input after creating
+      setNewTaskName(''); 
     }
   };
 
-  // Handler for adding a tag to a selected task
   const handleTagSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedTaskId !== '' && tagInput.trim()) {
@@ -36,7 +35,6 @@ export default function Management({ tasks, setTasks, tags, onAddTag, onAddTask 
     <div className="main-content">
       <h2>Management Screen</h2>
 
-      {/* SECTION 1: Create a New Task */}
       <div style={{
         border: '1px solid #444',
         padding: '1.5rem',
@@ -63,7 +61,6 @@ export default function Management({ tasks, setTasks, tags, onAddTag, onAddTask 
         </form>
       </div>
 
-      {/* SECTION 2: Assign Tags to Tasks */}
       <div style={{
         border: '1px solid #444',
         padding: '1.5rem',

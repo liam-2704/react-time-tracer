@@ -1,76 +1,114 @@
-import type { Task } from '../App';
+import { useState } from 'react';
+import type { Task, Tag, TimeSession } from '../App';
 
 interface Props {
   tasks: Task[];
+  tags: Tag[];
 }
 
-export default function TimeReport({ tasks }: Props) {
-  // Helper function to format raw seconds into H:M:S
-  const formatTime = (totalSeconds: number = 0) => {
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
+export default function TimeReport({ tasks, tags }: Props) {
+  // Setup default time interval (Today)
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  
+  const [filterStartStr, setFilterStartStr] = useState(new Date(startOfDay).toISOString().slice(0, 16));
+  const [filterEndStr, setFilterEndStr] = useState(new Date(now.getTime()).toISOString().slice(0, 16));
 
-    // Pads single digits with a leading zero (e.g., 9 becomes 09)
-    const h = hours.toString().padStart(2, '0');
-    const m = minutes.toString().padStart(2, '0');
-    const s = seconds.toString().padStart(2, '0');
+  const filterStart = new Date(filterStartStr).getTime();
+  const filterEnd = new Date(filterEndStr).getTime();
 
+  // Mathematical overlapping helper for strict time boundaries
+  const calculateOverlapSeconds = (sessions: TimeSession[]) => {
+    let total = 0;
+    sessions.forEach(s => {
+      const sStart = s.start;
+      const sEnd = s.end || Date.now();
+      
+      const actualStart = Math.max(sStart, filterStart);
+      const actualEnd = Math.min(sEnd, filterEnd);
+      
+      if (actualEnd > actualStart) {
+        total += (actualEnd - actualStart) / 1000;
+      }
+    });
+    return Math.floor(total);
+  };
+
+  const formatTime = (totalSeconds: number) => {
+    const h = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
+    const m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
+    const s = (totalSeconds % 60).toString().padStart(2, '0');
     return `${h}:${m}:${s}`;
   };
 
-  // Calculate the grand total of all tracked time
-  const totalTrackedSeconds = tasks.reduce((sum, task) => {
-    return sum + (task.elapsedSeconds || 0);
-  }, 0);
+  // 1. Calculate Activity per Task
+  const taskSummaries = tasks.map(task => ({
+    ...task,
+    intervalSeconds: calculateOverlapSeconds(task.sessions)
+  })).filter(t => t.intervalSeconds > 0);
 
-  // Filter out tasks that haven't been tracked yet to keep the report clean
-  const trackedTasks = tasks.filter(task => (task.elapsedSeconds || 0) > 0);
+  // 2. Calculate Activity per Tag
+  const tagSummaries = tags.map(tag => {
+    const associatedTasks = tasks.filter(t => t.tags.includes(tag.id));
+    const totalTagSeconds = associatedTasks.reduce((sum, task) => sum + calculateOverlapSeconds(task.sessions), 0);
+    return { name: tag.name, seconds: totalTagSeconds };
+  }).filter(t => t.seconds > 0);
 
   return (
     <div className="main-content">
-      <h2>Time Report</h2>
+      <h2>Activity Summary</h2>
       
-      <div style={{
-        backgroundColor: '#f8f9fa',
-        padding: '1.5rem',
-        borderRadius: '8px',
-        border: '1px solid #ddd',
-        marginBottom: '2rem',
-        textAlign: 'center'
-      }}>
-        <h3 style={{ margin: '0 0 0.5rem 0', color: '#333' }}>Total Time Tracked</h3>
-        <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#0056b3' }}>
-          {formatTime(totalTrackedSeconds)}
+      <div style={{ backgroundColor: '#f8f9fa', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
+        <h3>Select Time Interval</h3>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <label>From: <input type="datetime-local" value={filterStartStr} onChange={(e) => setFilterStartStr(e.target.value)} /></label>
+          <label>To: <input type="datetime-local" value={filterEndStr} onChange={(e) => setFilterEndStr(e.target.value)} /></label>
         </div>
       </div>
 
-      {trackedTasks.length === 0 ? (
-        <p style={{ textAlign: 'center', color: '#666' }}>
-          No time has been tracked yet. Head over to the Dashboard to start a timer!
-        </p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '1rem' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#333', color: '#fff', textAlign: 'left' }}>
-              <th style={{ padding: '0.75rem', border: '1px solid #555' }}>Task Name</th>
-              <th style={{ padding: '0.75rem', border: '1px solid #555', textAlign: 'right' }}>Time Spent (HH:MM:SS)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {trackedTasks.map((task) => (
-              <tr key={task.id} style={{ borderBottom: '1px solid #ddd' }}>
-                <td style={{ padding: '0.75rem', border: '1px solid #ddd' }}>
-                  <strong>{task.name}</strong>
-                </td>
-                <td style={{ padding: '0.75rem', border: '1px solid #ddd', textAlign: 'right', fontFamily: 'monospace', fontSize: '1.1rem' }}>
-                  {formatTime(task.elapsedSeconds)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <div style={{ display: 'flex', gap: '2rem' }}>
+        {/* TASK SUMMARY */}
+        <div style={{ flex: 1 }}>
+          <h3>Tasks Active in Period</h3>
+          {taskSummaries.length === 0 ? <p>No tasks active during this time.</p> : (
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead><tr style={{ backgroundColor: '#333', color: '#fff', textAlign: 'left' }}>
+                <th style={{ padding: '0.5rem' }}>Task</th>
+                <th style={{ padding: '0.5rem', textAlign: 'right' }}>Time Spent</th>
+              </tr></thead>
+              <tbody>
+                {taskSummaries.map((t) => (
+                  <tr key={t.id} style={{ borderBottom: '1px solid #ddd' }}>
+                    <td style={{ padding: '0.5rem' }}>{t.name}</td>
+                    <td style={{ padding: '0.5rem', textAlign: 'right' }}>{formatTime(t.intervalSeconds)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* TAG SUMMARY */}
+        <div style={{ flex: 1 }}>
+          <h3>Tags Active in Period</h3>
+          {tagSummaries.length === 0 ? <p>No tags active during this time.</p> : (
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead><tr style={{ backgroundColor: '#333', color: '#fff', textAlign: 'left' }}>
+                <th style={{ padding: '0.5rem' }}>Tag</th>
+                <th style={{ padding: '0.5rem', textAlign: 'right' }}>Cumulative Time</th>
+              </tr></thead>
+              <tbody>
+                {tagSummaries.map((t, idx) => (
+                  <tr key={idx} style={{ borderBottom: '1px solid #ddd' }}>
+                    <td style={{ padding: '0.5rem' }}>{t.name}</td>
+                    <td style={{ padding: '0.5rem', textAlign: 'right' }}>{formatTime(t.seconds)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
