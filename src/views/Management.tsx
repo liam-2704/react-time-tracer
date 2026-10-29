@@ -6,15 +6,14 @@ interface Props {
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
   tags: Tag[];
   onAddTag: (taskId: number, tagName: string) => void;
-  onAddTask: (taskName: string) => void; // Added to props
+  onAddTask: (taskName: string) => void;
 }
 
-export default function Management({ tasks, setTasks, tags, onAddTag, onAddTask }: Props) {
+export default function Management({ tasks, onAddTag, onAddTask }: Props) {
   const [selectedTaskId, setSelectedTaskId] = useState<number | ''>('');
   const [tagInput, setTagInput] = useState('');
   const [newTaskName, setNewTaskName] = useState('');
 
-  // Handler for creating a new task
   const handleTaskSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (newTaskName.trim()) {
@@ -35,20 +34,14 @@ export default function Management({ tasks, setTasks, tags, onAddTag, onAddTask 
     <div className="main-content">
       <h2>Management Screen</h2>
 
-      <div style={{
-        border: '1px solid #444',
-        padding: '1.5rem',
-        borderRadius: '4px',
-        marginBottom: '2rem',
-        backgroundColor: '#f9f9f9' 
-      }}>
+      <div className = "manage-card">
         <h3>Create a New Task</h3>
         <form onSubmit={handleTaskSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '400px', marginTop: '1rem' }}>
           <input
             type="text"
             value={newTaskName}
             onChange={(e) => setNewTaskName(e.target.value)}
-            placeholder="Enter task name (e.g., Feed the cat)..."
+            placeholder="Enter task name"
             style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
             required
           />
@@ -61,13 +54,7 @@ export default function Management({ tasks, setTasks, tags, onAddTag, onAddTask 
         </form>
       </div>
 
-      <div style={{
-        border: '1px solid #444',
-        padding: '1.5rem',
-        borderRadius: '4px',
-        marginBottom: '2rem',
-        backgroundColor: '#f9f9f9' 
-      }}>
+      <div className = "manage-card">
         <h3>Assign Tags to Tasks</h3>
         <p style={{ fontSize: '0.9rem', color: '#555', marginBottom: '1rem' }}>
           Select a task below and type a new or existing tag to associate them.
@@ -92,7 +79,7 @@ export default function Management({ tasks, setTasks, tags, onAddTag, onAddTask 
             type="text"
             value={tagInput}
             onChange={(e) => setTagInput(e.target.value)}
-            placeholder="Type tag name (e.g., urgent, frontend)..."
+            placeholder="Type tag name"
             style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
             required
           />

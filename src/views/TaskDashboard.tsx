@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import type { Task, Tag, TimeSession } from '../App';
+import type { Task, Tag } from '../App';
 
 interface TaskItemProps {
   task: Task;
   tags: Tag[];
-  setTasks: React.Dispatch<React.SetStateAction<Task[]>>; 
   onDelete: (id: number) => void;
   onAddTag: (taskId: number, tagName: string) => void;
   onRemoveTag: (taskId: number, tagId: number) => void;
@@ -13,9 +12,10 @@ interface TaskItemProps {
   onMoveDown: () => void;
   isFirst: boolean;
   isLast: boolean;
+  onToggleTimer: (task: Task) => void; 
 }
 
-function TaskItem({ task, tags, setTasks, onDelete, onAddTag, onRemoveTag, onUpdateName, onMoveUp, onMoveDown, isFirst, isLast }: TaskItemProps) {
+function TaskItem({ task, tags, onDelete, onAddTag, onRemoveTag, onUpdateName, onMoveUp, onMoveDown, isFirst, isLast, onToggleTimer }: TaskItemProps) {
   const [tagInput, setTagInput] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(task.name);
@@ -24,11 +24,9 @@ function TaskItem({ task, tags, setTasks, onDelete, onAddTag, onRemoveTag, onUpd
   const sessions = task.sessions || []; 
   const isActive = sessions.length > 0 && sessions[sessions.length - 1].end === null;
 
-  const taskTags = (task.tags || [])
-    .map(tagId => tags.find(t => t.id === tagId))
-    .filter((t): t is Tag => t !== undefined);
+  const taskTags = (task.tags || []).map(tagId => tags.find(t => t.id === tagId)).filter((t): t is Tag => t !== undefined);
 
-useEffect(() => {
+  useEffect(() => {
     const updateTime = () => {
       let total = 0;
       sessions.forEach(session => {
@@ -38,52 +36,16 @@ useEffect(() => {
       });
       setDisplaySeconds(total);
     };
-
     updateTime();
     let interval: ReturnType<typeof setInterval>;
-    if (isActive) {
-      interval = setInterval(updateTime, 1000);
-    }
+    if (isActive) interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
   }, [sessions, isActive]);
 
-  const handleToggleTimer = async () => {
-    const newSessions = sessions.map(s => ({ ...s }));
-    
-    if (isActive) {
-      newSessions[newSessions.length - 1].end = Date.now(); 
-    } else {
-      newSessions.push({ start: Date.now(), end: null }); 
-    }
-
-    try {
-      await fetch(`http://localhost:3010/tasks/${task.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ additional_data: JSON.stringify({ order: task.order, sessions: newSessions }) })
-      });
-      
-      setTasks((prevTasks: Task[]) =>
-        prevTasks.map((t) =>
-          t.id === task.id ? { ...t, sessions: newSessions } : t
-        )
-      );
-    } catch (e) { console.error(e); }
-  };
-
   return (
-    <div style={{
-      border: `2px solid ${isActive ? '#28a745' : '#444'}`, 
-      padding: '1rem',
-      marginBottom: '0.50rem',
-      borderRadius: '4px',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
-      backgroundColor: isActive ? '#e8f8ec' : 'transparent',
-    }}>
+    <div className="task-card" style={{ borderColor: isActive ? 'var(--success-color)' : 'var(--border-color)', backgroundColor: isActive ? 'rgba(46, 125, 50, 0.1)' : 'var(--card-bg)' }}>
       <div style={{ flexGrow: 1 }}>
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'center' }}>
           {isEditing ? (
              <>
                <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} />
@@ -92,39 +54,38 @@ useEffect(() => {
           ) : (
              <>
                <strong>{task.name || 'Unnamed Task'} {isActive && '(Active)'}</strong>
-               <button onClick={() => setIsEditing(true)} style={{ fontSize: '0.75rem', cursor: 'pointer' }}>Edit Name</button>
+               <button onClick={() => setIsEditing(true)} style={{ fontSize: '0.75rem', background: 'transparent', color: 'var(--primary-btn)', border: '1px solid var(--primary-btn)' }}>Edit</button>
              </>
           )}
         </div>
 
-        <div style={{ fontSize: '0.9rem', color: '#aaa', display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-          <span>Tags:</span>
+        <div style={{ fontSize: '0.9rem', display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.5rem' }}>
           {taskTags.map(tag => (
-            <span key={tag.id} style={{ backgroundColor: '#eee', color: '#333', padding: '0.1rem 0.4rem', borderRadius: '12px', fontSize: '0.8rem' }}>
-              {tag.name} <button onClick={() => onRemoveTag(task.id, tag.id)} style={{ border: 'none', color: 'red', cursor: 'pointer' }}>&times;</button>
+            <span key={tag.id} style={{ backgroundColor: 'var(--nav-bg)', padding: '0.2rem 0.5rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+              {tag.name} <button onClick={() => onRemoveTag(task.id, tag.id)} style={{ background: 'none', border: 'none', color: 'var(--danger-btn)', padding: 0, marginLeft: '4px' }}>&times;</button>
             </span>
           ))}
         </div>
 
-        <form onSubmit={(e) => { e.preventDefault(); if(tagInput) { onAddTag(task.id, tagInput); setTagInput(''); } }} style={{ marginTop: '0.5rem' }}>
-          <input list={`tag-suggestions-${task.id}`} value={tagInput} onChange={(e) => setTagInput(e.target.value)} placeholder="Add tag..." style={{ fontSize: '0.85rem' }}/>
+        <form onSubmit={(e) => { e.preventDefault(); if(tagInput) { onAddTag(task.id, tagInput); setTagInput(''); } }} className="flex-row" style={{ display: 'flex', gap: '0.5rem' }}>
+          <input list={`tag-suggestions-${task.id}`} value={tagInput} onChange={(e) => setTagInput(e.target.value)} placeholder="Add tag..." />
           <datalist id={`tag-suggestions-${task.id}`}>
             {tags.map((tag) => <option key={tag.id} value={tag.name} />)}
           </datalist>
-          <button type="submit" style={{ fontSize: '0.85rem', marginLeft: '0.5rem' }}>+ Add Tag</button>
+          <button type="submit">+ Add</button>
         </form>
       </div>
       
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+      <div className="actions" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
         <div style={{ display: 'flex', gap: '0.2rem' }}>
-          <button onClick={onMoveUp} disabled={isFirst} title="Move Up">↑</button>
-          <button onClick={onMoveDown} disabled={isLast} title="Move Down">↓</button>
+          <button onClick={onMoveUp} disabled={isFirst} aria-label="Move Up">↑</button>
+          <button onClick={onMoveDown} disabled={isLast} aria-label="Move Down">↓</button>
         </div>
         <div style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{displaySeconds}s</div>
-        <button onClick={handleToggleTimer} style={{ backgroundColor: isActive ? '#dc3545' : '#28a745', color: '#fff', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer' }}>
-          {isActive ? 'Stop Timer' : 'Start Timer'}
+        <button onClick={() => onToggleTimer(task)} style={{ backgroundColor: isActive ? 'var(--danger-btn)' : 'var(--success-color)' }}>
+          {isActive ? 'Stop' : 'Start'}
         </button>
-        <button onClick={() => onDelete(task.id)} style={{ border: 'none', backgroundColor: 'transparent', textDecoration: 'underline', color: '#dc3545', cursor: 'pointer', fontSize: '0.8rem' }}>Delete Task</button>
+        <button className="danger" onClick={() => onDelete(task.id)} style={{ fontSize: '0.8rem', background: 'transparent', color: 'var(--danger-btn)', textDecoration: 'underline' }}>Delete</button>
       </div>
     </div>
   );
@@ -139,44 +100,84 @@ interface Props {
   onRemoveTag: (taskId: number, tagId: number) => void;
   onUpdateName: (taskId: number, newName: string) => void;
   onReorder: (t1: Task, t2: Task) => void;
+  singleTaskMode: boolean; 
 }
 
-export default function TaskDashboard({ tasks, tags, setTasks, onDeleteTask, onAddTag, onRemoveTag, onUpdateName, onReorder }: Props) {
+export default function TaskDashboard({ tasks, tags, setTasks, onDeleteTask, onAddTag, onRemoveTag, onUpdateName, onReorder, singleTaskMode }: Props) {
   const [filterTagId, setFilterTagId] = useState<number | ''>('');
-  
   const filteredTasks = filterTagId === '' ? tasks : tasks.filter(task => (task.tags || []).includes(Number(filterTagId)));
+
+  const handleToggleTimer = async (targetTask: Task) => {
+    const targetSessions = targetTask.sessions || [];
+    const isActive = targetSessions.length > 0 && targetSessions[targetSessions.length - 1].end === null;
+
+    let updates = []; // Store api calls
+
+    if (isActive) {
+      // Just stop this task
+      const newSessions = [...targetSessions];
+      newSessions[newSessions.length - 1].end = Date.now();
+      updates.push({ id: targetTask.id, sessions: newSessions, order: targetTask.order });
+    } else {
+      // Start this task
+      const newSessions = [...targetSessions, { start: Date.now(), end: null }];
+      updates.push({ id: targetTask.id, sessions: newSessions, order: targetTask.order });
+
+      // Single mode
+      if (singleTaskMode) {
+        tasks.forEach(t => {
+          if (t.id !== targetTask.id) {
+            const s = t.sessions || [];
+            if (s.length > 0 && s[s.length - 1].end === null) {
+              const closedSessions = [...s];
+              closedSessions[closedSessions.length - 1].end = Date.now();
+              updates.push({ id: t.id, sessions: closedSessions, order: t.order });
+            }
+          }
+        });
+      }
+    }
+
+    try {
+      await Promise.all(updates.map(update => 
+        fetch(`http://localhost:3010/tasks/${update.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ additional_data: JSON.stringify({ order: update.order, sessions: update.sessions }) })
+        })
+      ));
+
+      setTasks(prevTasks => prevTasks.map(t => {
+        const matchingUpdate = updates.find(u => u.id === t.id);
+        return matchingUpdate ? { ...t, sessions: matchingUpdate.sessions } : t;
+      }));
+    } catch (e) { console.error("Error toggling timers", e); }
+  };
 
   return (
     <div className="main-content">
       <h2>Task Dashboard</h2>
       
       <div style={{ marginBottom: '1rem' }}>
-        <label>Filter by Tag: </label>
-        <select value={filterTagId} onChange={(e) => setFilterTagId(e.target.value ? Number(e.target.value) : '')}>
+        <label htmlFor="dashboard-filter" style={{ fontWeight: 'bold' }}>Filter by Tag: </label>
+        <select id="dashboard-filter" value={filterTagId} onChange={(e) => setFilterTagId(e.target.value ? Number(e.target.value) : '')}>
           <option value="">All Tags</option>
           {tags.map(tag => <option key={tag.id} value={tag.id}>{tag.name}</option>)}
         </select>
       </div>
 
-      <div className="task-cards-container">
+      <div>
         {filteredTasks.length === 0 ? <p>No tasks found.</p> : filteredTasks.map((task, index) => (
           <TaskItem 
-            key={task.id} 
-            task={task} 
-            tags={tags} 
-            setTasks={setTasks} // ADD THIS LINE
-            onDelete={onDeleteTask} 
-            onAddTag={onAddTag} 
-            onRemoveTag={onRemoveTag} 
-            onUpdateName={onUpdateName}
+            key={task.id} task={task} tags={tags} 
+            onDelete={onDeleteTask} onAddTag={onAddTag} onRemoveTag={onRemoveTag} onUpdateName={onUpdateName}
             onMoveUp={() => onReorder(task, filteredTasks[index - 1])}
             onMoveDown={() => onReorder(task, filteredTasks[index + 1])}
-            isFirst={index === 0}
-            isLast={index === filteredTasks.length - 1}
+            isFirst={index === 0} isLast={index === filteredTasks.length - 1}
+            onToggleTimer={handleToggleTimer} 
           />
         ))}
       </div>
     </div>
-    
   );
 }
