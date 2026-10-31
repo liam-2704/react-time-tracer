@@ -1,5 +1,24 @@
 import { useState } from 'react';
 import type { Task, Tag, TimeSession } from '../App';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+} from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 interface Props {
   tasks: Task[];
@@ -87,71 +106,104 @@ export default function TimeReport({ tasks, tags, setTasks }: Props) {
 
   const generateChartData = (task: Task) => {
     const days = [];
-    if (isNaN(filterStart) || isNaN(filterEnd)) return { days: [], maxSeconds: 1 };
+    if (isNaN(filterStart) || isNaN(filterEnd)) return { days: [] };
 
     let current = new Date(filterStart);
     current.setHours(0,0,0,0);
     const end = new Date(filterEnd);
-    let maxSeconds = 1; 
 
     while(current.getTime() <= end.getTime()) {
       const dayStart = current.getTime();
       const dayEnd = dayStart + 86399999;
       const secs = calculateTotalSeconds(task.sessions, dayStart, dayEnd);
-      if (secs > maxSeconds) maxSeconds = secs;
       days.push({ label: current.toLocaleDateString(), seconds: secs });
       current.setDate(current.getDate() + 1);
     }
-    return { days, maxSeconds };
+    return { days };
   };
 
   const selectedTask = tasks.find(t => t.id === selectedDetailTaskId);
-  const chartData = selectedTask ? generateChartData(selectedTask) : null;
+  const rawChartData = selectedTask ? generateChartData(selectedTask) : null;
 
-  // RESTORED: Calculate Activity per Task
+  const chartJsData = {
+    labels: rawChartData?.days.map(d => d.label) || [],
+    datasets: [
+      {
+        label: 'Time Tracked',
+        data: rawChartData?.days.map(d => d.seconds) || [],
+        backgroundColor: '#42a5f5',
+        borderRadius: 4,
+      }
+    ]
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: function(context: any) {
+            return ` ${formatTime(context.raw as number)}`;
+          }
+        }
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          callback: function(value: any) {
+            return formatTime(value);
+          }
+        }
+      }
+    }
+  };
+
   const taskSummaries = tasks.map(task => ({
     ...task,
     intervalSeconds: calculateTotalSeconds(task.sessions, filterStart, filterEnd)
   })).filter(t => t.intervalSeconds > 0);
 
-  // RESTORED: Calculate Activity per Tag
   const tagSummaries = tags.map(tag => {
     const associatedTasks = tasks.filter(t => t.tags.includes(tag.id));
     const totalTagSeconds = associatedTasks.reduce((sum, task) => sum + calculateTotalSeconds(task.sessions, filterStart, filterEnd), 0);
     return { name: tag.name, seconds: totalTagSeconds };
   }).filter(t => t.seconds > 0);
 
-
   return (
     <div className="main-content">
       <h2>Activity Reports & Editing</h2>
       
-      <div className="task-card flex-row" style={{ marginBottom: '2rem' }}>
+      <div className="task-card flex-row filter-card">
         <div>
-          <label style={{display:'block'}}>From:</label>
+          <label className="filter-label">From:</label>
           <input type="datetime-local" value={filterStartStr} onChange={(e) => setFilterStartStr(e.target.value)} />
         </div>
         <div>
-          <label style={{display:'block'}}>To:</label>
+          <label className="filter-label">To:</label>
           <input type="datetime-local" value={filterEndStr} onChange={(e) => setFilterEndStr(e.target.value)} />
         </div>
       </div>
 
-      {/* RESTORED SUMMARY TABLES */}
-      <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', marginBottom: '2rem' }}>
-        <div style={{ flex: '1 1 300px' }}>
+      <div className="summaries-container">
+        <div className="summary-box">
           <h3>Tasks Active in Period</h3>
           {taskSummaries.length === 0 ? <p>No tasks active during this time.</p> : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'var(--card-bg)' }}>
-              <thead><tr style={{ backgroundColor: 'var(--border-color)', textAlign: 'left' }}>
-                <th style={{ padding: '0.75rem', border: '1px solid var(--border-color)' }}>Task</th>
-                <th style={{ padding: '0.75rem', border: '1px solid var(--border-color)', textAlign: 'right' }}>Time Spent</th>
-              </tr></thead>
+            <table className="report-table">
+              <thead>
+                <tr>
+                  <th>Task</th>
+                  <th className="text-right">Time Spent</th>
+                </tr>
+              </thead>
               <tbody>
                 {taskSummaries.map((t) => (
-                  <tr key={t.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                    <td style={{ padding: '0.75rem', border: '1px solid var(--border-color)' }}>{t.name}</td>
-                    <td style={{ padding: '0.75rem', border: '1px solid var(--border-color)', textAlign: 'right', fontFamily: 'monospace' }}>{formatTime(t.intervalSeconds)}</td>
+                  <tr key={t.id}>
+                    <td>{t.name}</td>
+                    <td className="text-right font-mono">{formatTime(t.intervalSeconds)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -159,19 +211,21 @@ export default function TimeReport({ tasks, tags, setTasks }: Props) {
           )}
         </div>
 
-        <div style={{ flex: '1 1 300px' }}>
+        <div className="summary-box">
           <h3>Tags Active in Period</h3>
           {tagSummaries.length === 0 ? <p>No tags active during this time.</p> : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'var(--card-bg)' }}>
-              <thead><tr style={{ backgroundColor: 'var(--border-color)', textAlign: 'left' }}>
-                <th style={{ padding: '0.75rem', border: '1px solid var(--border-color)' }}>Tag</th>
-                <th style={{ padding: '0.75rem', border: '1px solid var(--border-color)', textAlign: 'right' }}>Cumulative Time</th>
-              </tr></thead>
+            <table className="report-table">
+              <thead>
+                <tr>
+                  <th>Tag</th>
+                  <th className="text-right">Cumulative Time</th>
+                </tr>
+              </thead>
               <tbody>
                 {tagSummaries.map((t, idx) => (
-                  <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                    <td style={{ padding: '0.75rem', border: '1px solid var(--border-color)' }}>{t.name}</td>
-                    <td style={{ padding: '0.75rem', border: '1px solid var(--border-color)', textAlign: 'right', fontFamily: 'monospace' }}>{formatTime(t.seconds)}</td>
+                  <tr key={idx}>
+                    <td>{t.name}</td>
+                    <td className="text-right font-mono">{formatTime(t.seconds)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -180,34 +234,27 @@ export default function TimeReport({ tasks, tags, setTasks }: Props) {
         </div>
       </div>
 
-      {/* DETAILED TASK VIEW */}
-      <div style={{ marginBottom: '2rem' }}>
+      <div className="detailed-task-section">
         <h3>Detailed Task View (Intervals & Chart)</h3>
         <select 
+          className="task-select"
           value={selectedDetailTaskId} 
           onChange={(e) => setSelectedDetailTaskId(Number(e.target.value))}
-          style={{ width: '100%', marginBottom: '1rem', padding: '0.75rem' }}
         >
           <option value="" disabled>Select a task to view intervals and chart</option>
           {tasks.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
 
         {selectedTask && (
-          <div className="task-card" style={{ flexDirection: 'column' }}>
+          <div className="task-card task-card-column">
             
-            <h4>Daily Active Time (Bar Chart)</h4>
-            <div style={{ display: 'flex', alignItems: 'flex-end', height: '150px', gap: '4px', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem', overflowX: 'auto' }}>
-              {chartData?.days.map((day, i) => (
-                <div key={i} style={{ flex: 1, minWidth: '30px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', height: '100%' }} title={`${day.label}: ${formatTime(day.seconds)}`}>
-    
-                  <div style={{ width: '80%', height: `${(day.seconds / chartData.maxSeconds) * 100}%`, minHeight: day.seconds > 0 ? '4px' : '0', backgroundColor: 'var(--primary-btn)', transition: 'height 0.3s' }}></div>
-                  <span style={{ fontSize: '0.6rem', marginTop: '4px', writingMode: 'vertical-rl' }}>{day.label}</span>
-                </div>
-              ))}
+            <h4>Daily Active Time</h4>
+            <div className="chart-wrapper">
+              <Bar data={chartJsData} options={chartOptions} />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h4>Activity Intervals (Chronological)</h4>
+            <div className="intervals-header">
+              <h4>Activity Intervals</h4>
               <button onClick={() => addManualSession(selectedTask.id)}>+ Add Interval</button>
             </div>
             
@@ -217,12 +264,7 @@ export default function TimeReport({ tasks, tags, setTasks }: Props) {
               const overlapping = hasOverlap(idx, selectedTask.sessions);
               
               return (
-                <div key={idx} style={{ 
-                  display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', 
-                  padding: '0.5rem', marginTop: '0.5rem', 
-                  backgroundColor: overlapping ? 'var(--error-bg)' : 'var(--nav-bg)', 
-                  border: overlapping ? '2px solid var(--danger-btn)' : '1px solid var(--border-color)' 
-                }}>
+                <div key={idx} className={`session-row ${overlapping ? 'session-overlap' : 'session-normal'}`}>
                   <input 
                     type="datetime-local" 
                     value={safeISOString(session.start)} 
@@ -238,8 +280,8 @@ export default function TimeReport({ tasks, tags, setTasks }: Props) {
                   ) : (
                     <span>(Ongoing)</span>
                   )}
-                  <button className="danger" onClick={() => deleteSession(selectedTask.id, idx)} style={{ marginLeft: 'auto' }}>Remove</button>
-                  {overlapping && <span style={{ color: 'var(--danger-btn)', fontWeight: 'bold', width: '100%' }}>Overlap Detected!</span>}
+                  <button className="danger session-remove-btn" onClick={() => deleteSession(selectedTask.id, idx)}>Remove</button>
+                  {overlapping && <span className="overlap-text">Overlap Detected!</span>}
                 </div>
               )
             })}

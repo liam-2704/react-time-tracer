@@ -53,7 +53,7 @@ function TaskItem({ task, tags, onDelete, onAddTag, onRemoveTag, onUpdateName, o
              </>
           ) : (
              <>
-               <strong>{task.name || 'Unnamed Task'} {isActive && '(Active)'}</strong>
+               <strong>{task.name || 'Unnamed Task'}</strong>
                <button onClick={() => setIsEditing(true)} style={{ fontSize: '0.75rem', background: 'transparent', color: 'var(--primary-btn)', border: '1px solid var(--primary-btn)' }}>Edit</button>
              </>
           )}
@@ -111,19 +111,19 @@ export default function TaskDashboard({ tasks, tags, setTasks, onDeleteTask, onA
     const targetSessions = targetTask.sessions || [];
     const isActive = targetSessions.length > 0 && targetSessions[targetSessions.length - 1].end === null;
 
-    let updates = []; // Store api calls
+    let updates = []; 
 
     if (isActive) {
-      // Just stop this task
+    
       const newSessions = [...targetSessions];
       newSessions[newSessions.length - 1].end = Date.now();
       updates.push({ id: targetTask.id, sessions: newSessions, order: targetTask.order });
     } else {
-      // Start this task
+  
       const newSessions = [...targetSessions, { start: Date.now(), end: null }];
       updates.push({ id: targetTask.id, sessions: newSessions, order: targetTask.order });
 
-      // Single mode
+  
       if (singleTaskMode) {
         tasks.forEach(t => {
           if (t.id !== targetTask.id) {

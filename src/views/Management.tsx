@@ -7,92 +7,62 @@ interface Props {
   tags: Tag[];
   onAddTag: (taskId: number, tagName: string) => void;
   onAddTask: (taskName: string) => void;
+  onDeleteTag: (tagId: number) => Promise<void>;
 }
 
-export default function Management({ tasks, onAddTag, onAddTask }: Props) {
-  const [selectedTaskId, setSelectedTaskId] = useState<number | ''>('');
-  const [tagInput, setTagInput] = useState('');
+export default function Management({ tasks, setTasks, tags, onAddTag, onAddTask, onDeleteTag }: Props) {
   const [newTaskName, setNewTaskName] = useState('');
 
-  const handleTaskSubmit = (e: React.FormEvent) => {
+  const handleCreateTask = (e: React.FormEvent) => {
     e.preventDefault();
     if (newTaskName.trim()) {
       onAddTask(newTaskName);
-      setNewTaskName(''); 
-    }
-  };
-
-  const handleTagSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (selectedTaskId !== '' && tagInput.trim()) {
-      onAddTag(Number(selectedTaskId), tagInput);
-      setTagInput(''); 
+      setNewTaskName('');
     }
   };
 
   return (
     <div className="main-content">
-      <h2>Management Screen</h2>
-
-      <div className = "manage-card">
-        <h3>Create a New Task</h3>
-        <form onSubmit={handleTaskSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '400px', marginTop: '1rem' }}>
-          <input
-            type="text"
-            value={newTaskName}
-            onChange={(e) => setNewTaskName(e.target.value)}
-            placeholder="Enter task name"
-            style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
-            required
+      <h2>Management</h2>
+      
+      <div className="task-card management-card management-create-section">
+        <h3>Create New Task</h3>
+        <form onSubmit={handleCreateTask} className="management-form">
+          <input 
+            type="text" 
+            value={newTaskName} 
+            onChange={(e) => setNewTaskName(e.target.value)} 
+            placeholder="Enter task name..."
+            className="management-input"
           />
-          <button 
-            type="submit" 
-            style={{ padding: '0.5rem', cursor: 'pointer', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}
-          >
-            Create Task
-          </button>
+          <button type="submit">+ Create Task</button>
         </form>
       </div>
 
-      <div className = "manage-card">
-        <h3>Assign Tags to Tasks</h3>
-        <p style={{ fontSize: '0.9rem', color: '#555', marginBottom: '1rem' }}>
-          Select a task below and type a new or existing tag to associate them.
+      <div className="task-card management-card management-tags-section">
+        <h3>Manage Global Tags</h3>
+        <p className="management-warning-text">
+          Deleting a tag here will permanently remove it from all tasks.
         </p>
 
-        <form onSubmit={handleTagSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '400px' }}>
-          <select
-            value={selectedTaskId}
-            onChange={(e) => setSelectedTaskId(Number(e.target.value))}
-            style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
-            required
-          >
-            <option value="" disabled>Select a task...</option>
-            {tasks.map((task) => (
-              <option key={task.id} value={task.id}>
-                {task.name}
-              </option>
+        {tags.length === 0 ? (
+          <p>No tags exist yet.</p>
+        ) : (
+          <ul className="management-tag-list">
+            {tags.map(tag => (
+              <li key={tag.id} className="management-tag-item">
+                <span className="management-tag-name">{tag.name}</span>
+                <button 
+                  className="danger management-delete-btn" 
+                  onClick={() => onDeleteTag(tag.id)}
+                >
+                  Delete Tag
+                </button>
+              </li>
             ))}
-          </select>
-
-          <input
-            type="text"
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            placeholder="Type tag name"
-            style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
-            required
-          />
-
-          <button 
-            type="submit" 
-            style={{ padding: '0.5rem', cursor: 'pointer', backgroundColor: '#0056b3', color: 'white', border: 'none', borderRadius: '4px' }}
-          >
-            Add Tag to Task
-          </button>
-        </form>
+          </ul>
+        )}
       </div>
-
     </div>
   );
 }

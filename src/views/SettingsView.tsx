@@ -11,8 +11,8 @@ export default function SettingsView({ settings, onSave }: Props) {
       <h2>Application Settings</h2>
       
       <div className="task-card flex-row">
-        <div style={{ marginBottom: '1rem' }}>
-          <label htmlFor="theme-select" style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem' }}>Theme</label>
+        <div className="settings-section">
+          <label htmlFor="theme-select" className="settings-label">Theme</label>
           <select 
             id="theme-select"
             value={settings.theme} 
@@ -24,14 +24,13 @@ export default function SettingsView({ settings, onSave }: Props) {
         </div>
 
         <div>
-          <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem' }}>Timer Mode</label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+          <label className="settings-label">Timer Mode</label>
+          <label className="settings-checkbox-label">
             <input 
-              className = "checkBox"
+              className="checkBox settings-checkbox-input"
               type="checkbox" 
               checked={settings.singleTaskMode}
               onChange={(e) => onSave({ ...settings, singleTaskMode: e.target.checked })}
-              style={{ width: '20px', height: '20px' }}
             />
             Single Mode (Only one task active at a time)
           </label>

@@ -32,13 +32,13 @@ export default function App() {
       const rawTasks = await tasksRes.json();
       const tagsData = await tagsRes.json();
       
-      // 2. Extract settings from our hidden settings task
+      
       const settingsTask = rawTasks.find((t: any) => t.name === '__APP_SETTINGS__');
       if (settingsTask && settingsTask.additional_data) {
         try { setSettings(JSON.parse(settingsTask.additional_data)); } catch(e) {}
       }
 
-      // 3. Filter out the hidden settings task so it doesn't show in your UI
+  
       const formattedTasks: Task[] = rawTasks
         .filter((t: any) => t.name !== '__APP_SETTINGS__')
         .map((t: any) => {
@@ -71,13 +71,13 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', settings.theme);
   }, [settings.theme]);
 
-  // 4. Save settings using the stable /tasks endpoint
   const saveSettings = async (newSettings: AppSettings) => {
     setSettings(newSettings);
     try {
       const tasksRes = await fetch('http://localhost:3010/tasks');
       const allTasks = await tasksRes.json();
       const settingsTask = allTasks.find((t: any) => t.name === '__APP_SETTINGS__');
+      
       
       if (settingsTask) {
         await fetch(`http://localhost:3010/tasks/${settingsTask.id}`, {
@@ -89,7 +89,8 @@ export default function App() {
         await fetch('http://localhost:3010/tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: '__APP_SETTINGS__', tags: "", additional_data: JSON.stringify(newSettings) })
+          body: JSON.stringify({ name: '__APP_SETTINGS__', tags: "", 
+            additional_data: JSON.stringify(newSettings) })
         });
       }
     } catch (error) { console.error("Failed to save settings", error); }
@@ -100,6 +101,32 @@ export default function App() {
     await loadData(); 
   } catch (error) { console.error(error); 
   } };
+  const handleDeleteTag = async (tagId: number) => {
+    try {
+
+      for (const task of tasks) {
+        if (task.tags.includes(tagId)) {
+          const updatedTagsArray = task.tags.filter(id => id !== tagId);
+          await fetch(`http://localhost:3010/tasks/${task.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tags: updatedTagsArray.join(',') }),
+          });
+        }
+      }
+      const response = await fetch(`http://localhost:3010/tags/${tagId}`, { 
+        method: 'DELETE' 
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete tag on backend');
+      }
+
+      await loadData();
+    } catch (error) {
+      console.error('Error deleting tag:', error);
+    }
+  };
   const handleAddTask = async (taskName: string) => 
     { if (!taskName.trim()) return; 
       try { await fetch('http://localhost:3010/tasks', 
@@ -148,7 +175,8 @@ export default function App() {
       await loadData(); } catch (error) { console.error(error); } };
   const handleReorderTasks = async (task1: Task, task2: Task) => { 
     try { const order1 = task1.order === task2.order ? Date.now() : task1.order; 
-      const order2 = task1.order === task2.order ? Date.now() + 1 : task2.order; await fetch(`http://localhost:3010/tasks/${task1.id}`,
+      const order2 = task1.order === task2.order ? Date.now() + 1 : task2.order; 
+      await fetch(`http://localhost:3010/tasks/${task1.id}`,
          { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
              additional_data: JSON.stringify({ order: order2, sessions: task1.sessions }) })
@@ -158,7 +186,9 @@ export default function App() {
                  body: JSON.stringify({
                    additional_data: JSON.stringify({ order: order1, sessions: task2.sessions }) }) 
                   });
-                  await loadData(); } catch (error) { console.error(error); } };
+                  await loadData(); } catch (error) { console.error(error); 
+                   } 
+                  };
 
   return (
     <BrowserRouter>
@@ -171,13 +201,40 @@ export default function App() {
       </nav>
       <main className="main-content">
         <Routes>
-          <Route path="/" element={<TaskDashboard tasks={tasks} tags={tags} setTasks={setTasks} onDeleteTask={handleDeleteTask} onAddTag={handleAddTagToTask} onRemoveTag={handleRemoveTagFromTask} onUpdateName={handleUpdateTaskName} onReorder={handleReorderTasks} singleTaskMode={settings.singleTaskMode} />} />
-          <Route path="/TimeReport" element={<TimeReport tasks={tasks} tags={tags} setTasks={setTasks} />} />
-          <Route path="/Management" element={<Management tasks={tasks} setTasks={setTasks} tags={tags} onAddTag={handleAddTagToTask} onAddTask={handleAddTask} />} />
-          <Route path="/Settings" element={<SettingsView settings={settings} onSave={saveSettings} />} />
+          <Route path="/" element={<TaskDashboard tasks={tasks} tags={tags} 
+          setTasks={setTasks} 
+          onDeleteTask={handleDeleteTask} 
+          onAddTag={handleAddTagToTask} 
+          onRemoveTag={handleRemoveTagFromTask} 
+          onUpdateName={handleUpdateTaskName} 
+          onReorder={handleReorderTasks} 
+          singleTaskMode={settings.singleTaskMode} />} />
+
+          <Route path="/TimeReport" 
+          element={<TimeReport 
+          tasks={tasks} 
+          tags={tags} 
+          setTasks={setTasks} />} />
+          
+          <Route path="/Management" element={
+            <Management 
+              tasks={tasks} 
+              setTasks={setTasks} 
+              tags={tags} 
+              onAddTag={handleAddTagToTask} 
+              onAddTask={handleAddTask} 
+              onDeleteTag={handleDeleteTag}
+            />
+          } />
+
+          <Route path="/Settings" 
+          element={<SettingsView 
+          settings={settings} 
+          onSave={saveSettings} />} />
           <Route path = "/Info" element = {<InfoView/>}></Route>
         </Routes>
       </main>
     </BrowserRouter>
   );
 }
+
